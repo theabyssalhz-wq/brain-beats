@@ -15,28 +15,29 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 
 # Map benefit keywords → ambient file
-AMBIENT_MAP = {
-    "sleep":      "deep_sleep_pad.mp3",
-    "delta":      "deep_sleep_pad.mp3",
-    "focus":      "cosmic_focus.mp3",
-    "study":      "cosmic_focus.mp3",
-    "adhd":       "cosmic_focus.mp3",
-    "gamma":      "cosmic_focus.mp3",
-    "healing":    "healing_drone.mp3",
-    "chakra":     "healing_drone.mp3",
-    "heart":      "healing_drone.mp3",
-    "pineal":     "healing_drone.mp3",
-    "grounding":  "earth_resonance.mp3",
-    "earth":      "earth_resonance.mp3",
-    "schumann":   "earth_resonance.mp3",
-    "theta":      "theta_dream.mp3",
-    "meditation": "theta_dream.mp3",
-    "alpha":      "alpha_calm.mp3",
-    "calm":       "alpha_calm.mp3",
-    "anxiety":    "alpha_calm.mp3",
-    "morning":    "morning_light.mp3",
+# Map benefit → visual file in assets/visuals/
+VISUAL_MAP = {
+    "sleep":      "dark_nebula.png",
+    "delta":      "dark_nebula.png",
+    "focus":      "particles_cyan.png",
+    "study":      "particles_cyan.png",
+    "gamma":      "particles_cyan.png",
+    "adhd":       "particles_cyan.png",
+    "healing":    "deep_cosmos.png",
+    "chakra":     "deep_cosmos.png",
+    "heart":      "deep_cosmos.png",
+    "pineal":     "golden_cosmos.png",
+    "grounding":  "earth_pulse.png",
+    "earth":      "earth_pulse.png",
+    "schumann":   "earth_pulse.png",
+    "theta":      "void_ripple.png",
+    "meditation": "void_ripple.png",
+    "alpha":      "soft_void.png",
+    "calm":       "soft_void.png",
+    "anxiety":    "soft_void.png",
+    "morning":    "dawn_light.png",
 }
-DEFAULT_AMBIENT = "healing_drone.mp3"
+DEFAULT_VISUAL = "deep_cosmos.png"
 
 # Ambient sits -18dB under binaural
 AMBIENT_DB = -18
