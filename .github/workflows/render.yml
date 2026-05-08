@@ -1,0 +1,111 @@
+name: Render Brain Beats video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "Video ID (e.g. 01)"
+        required: true
+        default: "01"
+      upload_to_youtube:
+        description: "Auto-upload to YouTube when done"
+        required: false
+        default: "false"
+      youtube_privacy:
+        description: "YouTube privacy (public / unlisted / private)"
+        required: false
+        default: "public"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 540    # 9h max — for 8h sleep videos
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-liberation python3-pil
+          ffmpeg -version | head -1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Reconstruct .env
+        run: |
+          cat > .env << ENVEOF
+          YOUTUBE_CLIENT_ID=${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET=${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN=${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          PROJECT_ROOT=${{ github.workspace }}
+          ENVEOF
+
+      - name: Step 1 - Visual pointer
+        run: python scripts/generate_visual.py ${{ inputs.video_id }}
+
+      - name: Step 2 - Thumbnail
+        run: python scripts/generate_thumbnail.py ${{ inputs.video_id }}
+
+      - name: Step 3 - Ambient bed
+        run: python scripts/generate_ambient.py ${{ inputs.video_id }}
+
+      - name: Step 4 - Binaural beats
+        run: python scripts/generate_binaural.py ${{ inputs.video_id }}
+
+      - name: Step 5 - SEO description + chapters
+        run: python scripts/generate_description.py ${{ inputs.video_id }}
+
+      - name: Step 6 - Compile final video
+        run: python scripts/compile_video.py ${{ inputs.video_id }}
+
+      - name: Step 7 - Generate Short (58s vertical)
+        run: python scripts/generate_shorts.py ${{ inputs.video_id }}
+
+      - name: Step 8 - Upload to YouTube
+        if: inputs.upload_to_youtube == 'true'
+        run: python scripts/upload_youtube.py ${{ inputs.video_id }} ${{ inputs.youtube_privacy }}
+
+      - name: Show outputs
+        run: |
+          echo "=== Video ===" && ls -lh output/videos/ 2>/dev/null || echo "(none)"
+          echo "=== Short ===" && ls -lh output/shorts/ 2>/dev/null || echo "(none)"
+          echo "=== Thumbnail ===" && ls -lh output/thumbnails/ 2>/dev/null || echo "(none)"
+          echo "=== Description ===" && cat output/descriptions/${{ inputs.video_id }}_*_description.txt 2>/dev/null | head -20 || echo "(none)"
+
+      - name: Upload video artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ inputs.video_id }}
+          path: output/videos/*.mp4
+          retention-days: 14
+
+      - name: Upload short artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-${{ inputs.video_id }}
+          path: output/shorts/${{ inputs.video_id }}_*.mp4
+          retention-days: 14
+
+      - name: Upload thumbnail artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: thumbnail-${{ inputs.video_id }}
+          path: output/thumbnails/*.png
+          retention-days: 14
+
+      - name: Upload description artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: description-${{ inputs.video_id }}
+          path: output/descriptions/${{ inputs.video_id }}_*_description.txt
+          retention-days: 14
