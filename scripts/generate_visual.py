@@ -17,27 +17,27 @@ ROOT = Path(__file__).parent.parent
 
 # Map benefit → visual file in assets/visuals/
 VISUAL_MAP = {
-    "sleep":      "dark_nebula.mp4",
-    "delta":      "dark_nebula.mp4",
-    "focus":      "particles_cyan.mp4",
-    "study":      "particles_cyan.mp4",
-    "gamma":      "particles_cyan.mp4",
-    "adhd":       "particles_cyan.mp4",
-    "healing":    "deep_cosmos.mp4",
-    "chakra":     "deep_cosmos.mp4",
-    "heart":      "deep_cosmos.mp4",
-    "pineal":     "golden_cosmos.mp4",
-    "grounding":  "earth_pulse.mp4",
-    "earth":      "earth_pulse.mp4",
-    "schumann":   "earth_pulse.mp4",
-    "theta":      "void_ripple.mp4",
-    "meditation": "void_ripple.mp4",
-    "alpha":      "soft_void.mp4",
-    "calm":       "soft_void.mp4",
-    "anxiety":    "soft_void.mp4",
-    "morning":    "dawn_light.mp4",
+    "sleep":      "dark_nebula.png",
+    "delta":      "dark_nebula.png",
+    "focus":      "particles_cyan.png",
+    "study":      "particles_cyan.png",
+    "gamma":      "particles_cyan.png",
+    "adhd":       "particles_cyan.png",
+    "healing":    "deep_cosmos.png",
+    "chakra":     "deep_cosmos.png",
+    "heart":      "deep_cosmos.png",
+    "pineal":     "golden_cosmos.png",
+    "grounding":  "earth_pulse.png",
+    "earth":      "earth_pulse.png",
+    "schumann":   "earth_pulse.png",
+    "theta":      "void_ripple.png",
+    "meditation": "void_ripple.png",
+    "alpha":      "soft_void.png",
+    "calm":       "soft_void.png",
+    "anxiety":    "soft_void.png",
+    "morning":    "dawn_light.png",
 }
-DEFAULT_VISUAL = "deep_cosmos.mp4"
+DEFAULT_VISUAL = "deep_cosmos.png
 
 
 def run(row_id: str) -> None:
