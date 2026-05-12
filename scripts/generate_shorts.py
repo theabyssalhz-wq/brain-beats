@@ -1,18 +1,5 @@
+
 #!/usr/bin/env python3
-"""Generate Brain Beats Shorts / Reels — UGC-style text overlays.
-
-No actual UGC footage needed. We simulate it with:
-- Dark background with the Hz glow visual (looped 60s clip)
-- Large bold hook text that reads like a real person's experience
-- Subtitle frequency info
-- Vertical 9:16 crop
-- 58 seconds (optimal for Shorts algorithm)
-
-This mimics the UGC text-on-screen style without any real face/voice.
-
-Usage: python scripts/generate_shorts.py 01
-"""
-
 import csv
 import json
 import subprocess
@@ -24,15 +11,13 @@ ROOT = Path(__file__).parent.parent
 SHORTS_DURATION = 58
 W_SHORT, H_SHORT = 1080, 1920
 
-_FONT_CANDIDATES = [
-    ROOT / "assets" / "fonts" / "bold.ttf",
-    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
-]
-FONT_PATH = next((str(p) for p in _FONT_CANDIDATES if p.exists()), None)
-FP = f"fontfile={FONT_PATH}:" if FONT_PATH else ""
+def get_channel_info(benefit: str, freq: str):
+    benefit = benefit.lower()
+    abyssal_keywords = ["sleep", "delta", "theta", "grounding", "abyssal", "deep", "pain", "fear"]
+    if any(k in benefit for k in abyssal_keywords) or freq in ["2Hz", "4Hz", "7.83Hz", "174Hz"]:
+        return "ABYSSAL F R E Q U E N C I E S"
+    return "BRAIN BEATS"
 
-# UGC-style hooks — rotated per video
 UGC_HOOKS = {
     "focus":      ["I studied for 4 hours straight.", "My brain wouldn't stop.\nThis fixed it.", "ADHD brain?\nTry this for 10 min."],
     "sleep":      ["Fell asleep in 8 minutes.", "Couldn't sleep for 3 days.\nThis changed that.", "Play this tonight.\nThank me tomorrow."],
@@ -45,7 +30,6 @@ UGC_HOOKS = {
     "default":    ["This frequency is wild.", "I wasn't expecting that.", "Try this for 10 minutes."],
 }
 
-
 def _get_hook(benefit: str, video_idx: int) -> str:
     b = benefit.lower()
     for key in UGC_HOOKS:
@@ -54,114 +38,54 @@ def _get_hook(benefit: str, video_idx: int) -> str:
             return hooks[video_idx % len(hooks)]
     return UGC_HOOKS["default"][video_idx % len(UGC_HOOKS["default"])]
 
-
 def run(row_id: str) -> None:
-    csv_path = ROOT / "content_plan.csv"
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-        row = next((r for r in rows if r["id"] == row_id), None)
-    if row is None:
-        print(f"ERROR: row {row_id!r} not found", file=sys.stderr); sys.exit(1)
+    with open(ROOT / "content_plan.csv", newline="", encoding="utf-8") as f:
+        row = next((r for r in csv.DictReader(f) if r["id"] == row_id), None)
+    if not row: return
 
-    freq     = row["frequency"]
-    benefit  = row["benefit"]
-    dur_h    = int(row.get("duration_hours", 3))
-    row_idx  = int(row_id) - 1
+    freq, benefit = row["frequency"], row["benefit"]
+    row_idx = int(row_id) - 1
+    ch_name = get_channel_info(benefit, freq)
 
-    # Visual source
     visualptr = ROOT / "output" / "visuals" / f"{row_id}_{freq}.json"
-    if not visualptr.exists():
-        print(f"ERROR: visual pointer missing", file=sys.stderr); sys.exit(1)
-    pointer    = json.loads(visualptr.read_text())
+    pointer = json.loads(visualptr.read_text())
     visual_src = ROOT / pointer["source"]
-
-    # Audio: first 58s of binaural
-    binaural = ROOT / "output" / "binaural" / f"{row_id}_{freq}_{dur_h}h.mp3"
-    if not binaural.exists():
-        print(f"ERROR: binaural missing", file=sys.stderr); sys.exit(1)
+    binaural = ROOT / "output" / "binaural" / f"{row_id}_{freq}_3h.mp3"
 
     hook = _get_hook(benefit, row_idx)
-    hook_esc  = hook.replace("'", "\\'").replace(":", "\\:").replace("\n", "\n")
-    freq_esc  = freq.replace("'", "\\'")
-    ch_esc    = "BRAIN BEATS"
-
-    # Escape newlines for drawtext: use line break via multiple drawtext or \n
     hook_lines = hook.split("\n")
     hook_line1 = hook_lines[0].replace("'", "\\'").replace(":", "\\:")
     hook_line2 = hook_lines[1].replace("'", "\\'").replace(":", "\\:") if len(hook_lines) > 1 else ""
 
-    # Build drawtext chain
-    dt_hook1 = (
-        f"[base]drawtext=text='{hook_line1}':"
-        f"{FP}fontsize=72:fontcolor=white@0.95:"
-        f"shadowcolor=black@0.8:shadowx=3:shadowy=3:"
-        f"x=(W-tw)/2:y=H*0.28[h1]"
+    # Improved Video Filter: Breathing effect + Cinematic overlays
+    video_filter = (
+        f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+        f"zoompan=z='1.1+0.05*sin(2*PI*it/15)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920,"
+        f"drawtext=text='{hook_line1}':fontsize=72:fontcolor=white@0.9:shadowcolor=black@0.8:shadowx=3:shadowy=3:x=(w-tw)/2:y=h*0.3"
     )
     if hook_line2:
-        dt_hook2 = (
-            f"[h1]drawtext=text='{hook_line2}':"
-            f"{FP}fontsize=72:fontcolor=white@0.95:"
-            f"shadowcolor=black@0.8:shadowx=3:shadowy=3:"
-            f"x=(W-tw)/2:y=H*0.28+90[h2]"
-        )
-        after_hook = "[h2]"
-    else:
-        dt_hook2 = ""
-        after_hook = "[h1]"
-
-    dt_freq = (
-        f"{after_hook}drawtext=text='{freq_esc}':"
-        f"{FP}fontsize=48:fontcolor=white@0.60:"
-        f"shadowcolor=black@0.5:shadowx=2:shadowy=2:"
-        f"x=(W-tw)/2:y=H*0.75[freq_t]"
-    )
-    dt_ch = (
-        f"[freq_t]drawtext=text='{ch_esc}':"
-        f"{FP}fontsize=34:fontcolor=white@0.50:"
-        f"x=W-tw-40:y=H-70[v]"
+        video_filter += f",drawtext=text='{hook_line2}':fontsize=72:fontcolor=white@0.9:shadowcolor=black@0.8:shadowx=3:shadowy=3:x=(w-tw)/2:y=h*0.3+90"
+    
+    video_filter += (
+        f",drawtext=text='{freq}':fontsize=50:fontcolor=white@0.5:x=(w-tw)/2:y=h*0.75"
+        f",drawtext=text='{ch_name}':fontsize=34:fontcolor=white@0.4:x=w-tw-40:y=h-70"
     )
 
-    filters = [
-        f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-        f"crop=1080:1920,fps=30,format=yuv420p[base]",
-        dt_hook1,
-    ]
-    if dt_hook2:
-        filters.append(dt_hook2)
-    filters += [dt_freq, dt_ch]
-
-    video_graph = ";".join(filters)
-    audio_graph = f"[1:a]atrim=end={SHORTS_DURATION},afade=t=out:st={SHORTS_DURATION-3}:d=3[a]"
-    full_graph  = video_graph + ";" + audio_graph
-
-    out_dir = ROOT / "output" / "shorts"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{row_id}_{freq}_short.mp4"
+    out_path = ROOT / "output" / "shorts" / f"{row_id}_{freq}_short.mp4"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = [
-        "ffmpeg",
-        "-stream_loop", "-1", "-t", str(SHORTS_DURATION), "-i", str(visual_src),
+        "ffmpeg", "-stream_loop", "-1", "-t", str(SHORTS_DURATION), "-i", str(visual_src),
         "-i", str(binaural),
-        "-filter_complex", full_graph,
+        "-filter_complex", f"[0:v]{video_filter}[v];[1:a]atrim=end={SHORTS_DURATION},afade=t=out:st={SHORTS_DURATION-3}:d=3[a]",
         "-map", "[v]", "-map", "[a]",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
-        "-pix_fmt", "yuv420p", "-r", "30",
-        "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
-        "-t", str(SHORTS_DURATION),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k", "-t", str(SHORTS_DURATION),
         str(out_path), "-y"
     ]
 
-    print(f"Brain Beats {row_id} | {freq} Short")
-    print(f"  Hook: {hook_lines[0]}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"FFmpeg error:\n{result.stderr[-400:]}", file=sys.stderr); sys.exit(1)
-
-    size_mb = out_path.stat().st_size / 1e6
-    print(f"  Done. {out_path.name} ({size_mb:.1f} MB)")
-
+    subprocess.run(cmd)
+    print(f"Short generated: {out_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: python {sys.argv[0]} <row_id>"); sys.exit(1)
     run(sys.argv[1])
